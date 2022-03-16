@@ -1,0 +1,235 @@
+Api com suas notações basicas referente extrair a evolução do numero de casos no brasil referente ao covid
+
+# Projeto final de Python Let's Code
+
+import requests as r
+url = 'https://api.covid19api.com/dayone/country/brazil'
+
+resp = r.get(url) # 'r' é apelido dado para requests
+
+print(resp.status_code) # esse print serve para ver como ta o status dessa requisição
+
+
+# In[229]:
+
+
+raw_data = resp.json() # json serve para transmitir as variveis da API
+raw_data[0]
+
+
+# In[230]:
+
+
+final_data = [] # definindo variavel que quero apenas guarda
+for obs in raw_data: # para cada observação(varivel temp.) encontrada em nossos dados brutos(final_data)
+    final_data.append([obs['Confirmed'], obs['Deaths'], obs['Recovered'], obs['Active'], obs['Date']])
+    # Estamos realizando uma lista de listas aqui, necessário colocar o colchetes no inicio
+    final_data
+
+
+# In[231]:
+
+
+final_data
+
+
+# In[232]:
+
+
+final_data.insert(0, ['Confirmados', 'Obitos', 'Recuperados', 'Ativos', 'Data']) 
+final_data
+
+# inserindo Header em nosso dataset
+
+
+# In[233]:
+
+
+CONFIRMADOS = 0
+OBITOS = 1
+RECUPERADOS = 2
+ATIVOS = 3
+DATA = 4
+
+# REFERENCIANDO CADA POSIÇÃO DA LISTA DE MANEIRA MAIS INTUITIVA
+for i in range(1, len(final_data)): # ver aula de listas e tuplas para entender a questao da utilização do i 
+    # partindo da posição 1 no laço for, contando tudo que está em na lista final_data
+    final_data[i][DATA] = final_data[i][DATA][:10] # i = posição i, data = posição data, ele vai receber ele mesmo até o caracter de indice 9
+    
+
+
+# In[234]:
+
+
+final_data
+
+
+# In[235]:
+
+
+import csv # aqui transformos todo nosso tratamento para um arquivo csv
+with open('brasil-covid', 'w', encoding='utf8') as file:
+    writer = csv.writer(file)
+    writer.writerows(final_data) # writerows é um formato de lista de lista
+
+
+# In[236]:
+
+
+import datetime as dt
+    
+for i in range(1, len(final_data)):
+    final_data[i][DATA] = dt.datetime.strptime(final_data[i][DATA], '%Y-%m-%d')
+    # essa função faz o parcing de um valor do tipo string para o tipo data
+
+
+# In[237]:
+
+
+final_data
+
+
+# In[238]:
+
+
+# Part II - Do Projeto Python LetsCode, vamos buscar pela API - QuickChart
+# Faremos Graficos, irei apontar abaixo o que é categorizados dentro do DICT 
+
+url = 'https://quickchart.io/chart'
+
+# Sempre informar o "TYPE:'bar', que seria o grafico de barras nesse caso"
+# labels: [ 2012, 2013, 2014, 2015, 2016] Serão o EIXO X 
+# e os valores de y podem ser categorizados por um "label" diferente de "labels"
+# e pelos valore reais de dados informandos ex: data: [ 120, 60, 50, 180, 120]
+
+def get_datasets(y, labels): # Função responsavel para construir os dados de Y
+    if type(y[0]) == list: # verificando se o tipo é um tipo lista ou valor comum
+        datasets = [] # abrindo uma lista que conterá a lista y e labels
+        for i in range(len(y)): # utilizando um range para explorar as listas 
+            datasets.append({
+                'label':labels[i],
+                'data': y[i]
+            }) # dando um append das informações de label e data
+        return datasets
+    else:
+        return [
+            {
+                'label': labels[0],
+                'data': y 
+            }
+        ]
+
+
+# In[239]:
+
+
+def set_title(title=''): # definindo o titulo do grafico 
+    if title != '':
+        display = 'true' # assim que é API pede que seja informado
+    else:
+        display = 'false'
+    return {
+        'title': title,
+        'display': display
+    }
+
+
+# In[240]:
+
+
+def create_chart(x, y, labels, kind='bar', title=''): # dicionario que representa ao grafico
+       
+       datasets = get_datasets(y, labels)
+       options = set_title(title)
+       
+       chart = {
+           'type': kind, 
+           'data': {
+               'labels': x,
+               'datasets': datasets
+           },
+           'options': options #chave que é responsavel pelo setup de algumas informações como titulo ou eixos
+       }
+       return chart
+
+
+# In[241]:
+
+
+def get_api_chart(chart): # defindo uma função para chamar a API 
+    url_base = 'https://quickchart.io/chart'
+    resp = r.get(f'{url_base}?c={str(chart)}') # vai retorna o arquivo de imagem
+    return resp.content #recebendo um valor binario por isso utilizar o content
+    # vai retorna a imagem em sí, o arquivo de imagem 
+
+
+# In[242]:
+
+
+def save_image(path, content): # path = caminho para salvar imagem content = qual vai ser o conteudo
+    with open(path, 'wb') as image: # sempre que for escrever um valor binario em um novo arquivo tem que colocar o b 
+        image.write(content)
+
+
+# In[243]:
+
+
+from PIL import Image # função para importar o image
+from IPython.display import display
+
+def display_image(path):
+    img_pil = Image.open(path)
+    display(img_pil)
+
+
+# In[244]:
+
+
+y_data_1 = []
+for obs in final_data[1::30]: # Utilizando metodo slicing para pular de 10 em 10 dias, e 1 para ignorar o header
+    y_data_1.append(obs[CONFIRMADOS])
+    # y_data_1 é a coluna de confirmandos e y_data_2 é para a coluna de recuperados
+    
+y_data_2 = []
+for obs in final_data[1::30]: # Utilizando metodo slicing para pular de 10 em 10 dias, e 1 para ignorar o header
+    y_data_2.append(obs[RECUPERADOS])
+    
+labels = ['Confirmados', 'Recuperados'] # Declarando os labels que estão presentes no grafico
+
+x = []
+for obs in final_data[1::10]: # Utilizando metodo slicing para pular de 10 em 10 dias, e 1 para ignorar o header
+    x.append(obs[DATA].strftime('%d/%m/%Y')) # transformando um datetime em string
+    
+chart = create_chart(x, [y_data_1, y_data_2], labels, title='Gráfico confirmados X Recuperados')
+chart_content = get_api_chart(chart) #pegando api chart
+save_image('primeiro-grafico.png', chart_content)
+display_image('primeiro-grafico.png')
+    
+
+
+# In[245]:
+
+
+from urllib.parse import quote
+
+
+# In[246]:
+
+
+# a biblioteca quickchart permite criar um qrcode
+
+def get_api_qrcode(link):
+    text = quote(link) # parsing do link para url
+    url_base = 'https://quickchart.io/qr'
+    resp = r.get(f'{url_base}?text={text}') # o ?text é o parametro que api usar para receber o link de redi..
+    return resp.content
+    
+
+
+# In[247]:
+
+
+url_base = 'https://quickchart.io/chart'
+link = f'{url_base}?c={str(chart)}'
+save_image('qr-code.png', get_api_qrcode(link))
+display_image('qr-code.png')
